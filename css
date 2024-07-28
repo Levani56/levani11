@@ -1,0 +1,307 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace PublishingHouseManagement
+{
+    
+    // Main Program
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Publishing House Management System");
+
+            // Example usage
+            var author = new Author("John", "Doe", "Male", "12345678901", new DateTime(1980, 1, 1), "USA", "1234567890", "john.doe@example.com");
+            AuthorRepository.AddAuthor(author);
+
+            var product = new Product("Book1", "A book", "Book", "978-3-16-148410-0", DateTime.Now, "Publishing House", 100, "123 Street");
+            author.AddProduct(author.Id, product);
+
+            Console.WriteLine("Author and product added successfully.");
+
+            // Additional operations
+            var report = AnnualReport.GetAnnualReport(DateTime.Now.Year);
+            Console.WriteLine($"Annual Report for {DateTime.Now.Year}:");
+            foreach (var entry in report)
+            {
+                Console.WriteLine($"{entry.Key}: {entry.Value}");
+            }
+
+            var topProducts = ProductDisplay.GetTopMProducts(5);
+            Console.WriteLine("Top 5 products by circulation:");
+            foreach (var p in topProducts)
+            {
+                Console.WriteLine($"{p.Name}, Pages: {p.NumberOfPages}");
+            }
+        }
+
+    }
+    
+    
+    
+    // 1. Create IAuthor Interface
+    public interface IAuthor
+    {
+        void AddAuthor(Author author);
+        void EditAuthor(Guid id, Author updatedAuthor);
+        void DeleteAuthor(Guid id);
+        void AddProduct(Guid authorId, Product product);
+        void DeleteProduct(Guid authorId, Guid productId);
+        Author GetAuthorInfoById(Guid id);
+    }
+
+    // 2. Create Author Class
+    public class Author : IAuthor, IComparable<Author>
+    {
+        public Guid Id { get; private set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Gender { get; set; }
+        public string PersonalNumber { get; set; }
+        public DateTime DateOfBirth { get; set; }
+        public string Country { get; set; }
+        public string PhoneNumber { get; set; }
+        public string Email { get; set; }
+        public List<Product> Products { get; private set; }
+
+        public Author(string firstName, string lastName, string gender, string personalNumber, DateTime dateOfBirth, string country, string phoneNumber, string email)
+        {
+            Id = Guid.NewGuid();
+            FirstName = firstName;
+            LastName = lastName;
+            Gender = gender;
+            PersonalNumber = personalNumber;
+            DateOfBirth = dateOfBirth;
+            Country = country;
+            PhoneNumber = phoneNumber;
+            Email = email;
+            Products = new List<Product>();
+
+            if (personalNumber.Length != 11)
+                throw new ArgumentException("Personal number must be 11 digits long.");
+        }
+
+        public void AddAuthor(Author author)
+        {
+            AuthorRepository.AddAuthor(author);
+        }
+
+        public void EditAuthor(Guid id, Author updatedAuthor)
+        {
+            var author = AuthorRepository.GetAuthorById(id);
+            if (author != null)
+            {
+                author.FirstName = updatedAuthor.FirstName;
+                author.LastName = updatedAuthor.LastName;
+                author.Gender = updatedAuthor.Gender;
+                author.PersonalNumber = updatedAuthor.PersonalNumber;
+                author.DateOfBirth = updatedAuthor.DateOfBirth;
+                author.Country = updatedAuthor.Country;
+                author.PhoneNumber = updatedAuthor.PhoneNumber;
+                author.Email = updatedAuthor.Email;
+            }
+        }
+
+        public void DeleteAuthor(Guid id)
+        {
+            AuthorRepository.DeleteAuthor(id);
+        }
+
+        public void AddProduct(Guid authorId, Product product)
+        {
+            var author = AuthorRepository.GetAuthorById(authorId);
+            if (author != null)
+            {
+                author.Products.Add(product);
+            }
+        }
+
+        public void DeleteProduct(Guid authorId, Guid productId)
+        {
+            var author = AuthorRepository.GetAuthorById(authorId);
+            if (author != null)
+            {
+                var product = author.Products.FirstOrDefault(p => p.Id == productId);
+                if (product != null)
+                {
+                    author.Products.Remove(product);
+                }
+            }
+        }
+
+        public Author GetAuthorInfoById(Guid id)
+        {
+            return AuthorRepository.GetAuthorById(id);
+        }
+
+        public int CompareTo(Author other)
+        {
+            return other.DateOfBirth.CompareTo(this.DateOfBirth); // Descending age
+        }
+    }
+
+    // 3. Create Product Class
+    public class Product : IComparer<Product>
+    {
+        public Guid Id { get; private set; }
+        public string Name { get; set; }
+        public string Annotation { get; set; }
+        public string ProductType { get; set; }
+        public string ISBN { get; set; }
+        public DateTime DateOfIssue { get; set; }
+        public string PublishingHouse { get; set; }
+        public int NumberOfPages { get; set; }
+        public string Address { get; set; }
+
+        public Product(string name, string annotation, string productType, string isbn, DateTime dateOfIssue, string publishingHouse, int numberOfPages, string address)
+        {
+            Id = Guid.NewGuid();
+            Name = name;
+            Annotation = annotation;
+            ProductType = productType;
+            ISBN = isbn;
+            DateOfIssue = dateOfIssue;
+            PublishingHouse = publishingHouse;
+            NumberOfPages = numberOfPages;
+            Address = address;
+
+            if (numberOfPages <= 0)
+                throw new ArgumentException("Number of pages must be positive.");
+
+            if (!IsValidISBN(isbn))
+                throw new ArgumentException("Invalid ISBN.");
+        }
+
+        public Product()
+        {
+            throw new NotImplementedException();
+        }
+
+        public int Compare(Product x, Product y)
+        {
+            return x.NumberOfPages.CompareTo(y.NumberOfPages); // Ascending number of pages
+        }
+
+        private bool IsValidISBN(string isbn)
+        {
+            return System.Text.RegularExpressions.Regex.IsMatch(isbn, @"^\d{3}-\d{1,5}-\d{1,7}-\d{1,7}-\d{1}$");
+        }
+    }
+
+    // 4. Associations between Author and Product are handled through methods in Author class and list of Products
+
+    // 5. Static Class for Author References
+    public static class AuthorRepository
+    {
+        private static List<Author> authors = new List<Author>();
+
+        public static void AddAuthor(Author author)
+        {
+            authors.Add(author);
+        }
+
+        public static void DeleteAuthor(Guid id)
+        {
+            var author = GetAuthorById(id);
+            if (author != null)
+            {
+                authors.Remove(author);
+            }
+        }
+
+        public static Author GetAuthorById(Guid id)
+        {
+            return authors.FirstOrDefault(a => a.Id == id);
+        }
+
+        public static List<Author> GetAllAuthors()
+        {
+            return authors;
+        }
+
+        public static void SortAuthorsByAgeDescending()
+        {
+            authors.Sort();
+        }
+    }
+
+    // 7. Sorting collection of products by increasing number of pages
+    public static class ProductRepository
+    {
+        private static List<Product> products = new List<Product>();
+
+        public static void AddProduct(Product product)
+        {
+            products.Add(product);
+        }
+
+        public static void SortProductsByPagesAscending()
+        {
+            products.Sort(new Product());
+        }
+
+        public static List<Product> GetAllProducts()
+        {
+            return products;
+        }
+    }
+
+    // 8. Product Search Method
+    public static class ProductSearch
+    {
+        public static List<Product> SearchProductsByDateInterval(DateTime startDate, DateTime endDate)
+        {
+            return ProductRepository.GetAllProducts().Where(p => p.DateOfIssue >= startDate && p.DateOfIssue <= endDate).ToList();
+        }
+    }
+
+    // 9. Display Top m Products with Highest Circulation
+    public static class ProductDisplay
+    {
+        public static List<Product> GetTopMProducts(int m)
+        {
+            return ProductRepository.GetAllProducts().OrderByDescending(p => p.NumberOfPages).Take(m).ToList();
+        }
+    }
+
+    // 10. Annual Report Method
+    public static class AnnualReport
+    {
+        public static Dictionary<string, int> GetAnnualReport(int year)
+        {
+            var productsInYear = ProductRepository.GetAllProducts().Where(p => p.DateOfIssue.Year == year).ToList();
+            var report = new Dictionary<string, int>
+            {
+                { "Books", productsInYear.Count(p => p.ProductType == "Book") },
+                { "Articles", productsInYear.Count(p => p.ProductType == "Article") },
+                { "Electronic Resources", productsInYear.Count(p => p.ProductType == "Electronic Resource") }
+            };
+
+            return report;
+        }
+    }
+    
+}
+
+// 1. **Compositional Relationship**:
+// - **`Author` to `Product`**: The `Author` class maintains a `List<Product>` which represents a one-to-many relationship. This means one `Author` can have multiple `Products`. This is a compositional relationship because the `Products` list is part of the `Author` class and is managed directly within it. 
+//
+// 2. **Associative Relationship**:
+// - **`Product` to `Author`**: While the current implementation doesn't directly store a reference to `Author` in the `Product` class, this relationship is managed through methods in the `Author` class. If you need a more direct association, you could add an `Author` property in the `Product` class, which would provide a clear link back to the author.
+//
+// #### Encapsulation
+// - Encapsulation is used to hide the internal state of the `Author` and `Product` classes. For example, `Id` is a private set property, which prevents modification from outside the class. The `Products` list is also managed internally within the `Author` class, ensuring that modifications are controlled through public methods only.
+//
+// #### Polymorphism
+// - Polymorphism is demonstrated through the `IAuthor` interface, which allows different classes to implement the same methods. In your design, `Author` implements `IAuthor`, allowing for consistent behavior across different implementations that follow the interface contract.
+//
+//
+// #### Summary
+// - **Compositional relationship**: One `Author` can have multiple `Products` (one-to-many).
+// - **Associative relationship**: Each `Product` can be linked back to its `Author`, though the current design handles this indirectly.
+// - **Encapsulation**: Used to protect the state and manage access to class properties and methods.
+// - **Polymorphism**: Achieved through interfaces to ensure consistent method implementation.
+// - **Inheritance**: Not used but could be considered for extending functionality in the future.
+
